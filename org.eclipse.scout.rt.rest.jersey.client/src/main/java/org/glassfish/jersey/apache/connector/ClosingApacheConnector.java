@@ -179,6 +179,11 @@ class ClosingApacheConnector extends ApacheConnector {
     if (clientRequest.getProperty(ClientProperties.REQUEST_ENTITY_PROCESSING) == null && BooleanUtility.nvl(clientRequest.resolveProperty(RestClientProperties.DISABLE_CHUNKED_TRANSFER_ENCODING, Boolean.class))) {
       clientRequest.setProperty(ClientProperties.REQUEST_ENTITY_PROCESSING, RequestEntityProcessing.BUFFERED);
     }
+
+    boolean suppressDefaultUserAgent = BooleanUtility.nvl(clientRequest.resolveProperty(RestClientProperties.SUPPRESS_DEFAULT_USER_AGENT, false));
+    if (!suppressDefaultUserAgent && !clientRequest.getHeaders().containsKey(HttpHeaders.USER_AGENT)) {
+      clientRequest.getHeaders().add(HttpHeaders.USER_AGENT, "Generic");
+    }
   }
 
   protected boolean isCookiePropertySet(ClientRequest clientRequest) {

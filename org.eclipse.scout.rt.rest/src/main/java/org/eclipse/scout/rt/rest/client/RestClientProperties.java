@@ -204,6 +204,23 @@ public final class RestClientProperties {
   public static final String FOLLOW_REDIRECTS = "scout.rest.client.followRedirects";
 
   /**
+   * The Scout REST client adds a default user agent header with value {@code 'Generic'} unless a specific user agent
+   * header was set at request level by the invoker.<br>
+   * If this property is set to {@code true}, the default behavior is suppressed and no user agent header is added
+   * automatically by the client.
+   * <p>
+   * The value MUST be an instance convertible to {@link java.lang.Boolean}.
+   * </p>
+   * <p>
+   * The default value is {@code false}.
+   * </p>
+   * <p>
+   * The name of the configuration property is <tt>{@value}</tt>.
+   * </p>
+   */
+  public static final String SUPPRESS_DEFAULT_USER_AGENT = "scout.rest.client.suppressDefaultUserAgent";
+
+  /**
    * Activates the new Scout apache connector implementation.
    *
    * @deprecated The scout apache connector will become the default implementation with release 23.0 and this property

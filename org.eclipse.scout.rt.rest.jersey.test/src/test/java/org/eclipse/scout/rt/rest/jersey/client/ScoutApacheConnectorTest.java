@@ -17,6 +17,7 @@ import java.net.URI;
 import java.util.Map;
 import java.util.UUID;
 import java.util.function.BiConsumer;
+import java.util.function.Function;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -26,6 +27,7 @@ import javax.ws.rs.client.ClientBuilder;
 import javax.ws.rs.client.Entity;
 import javax.ws.rs.client.Invocation.Builder;
 import javax.ws.rs.client.WebTarget;
+import javax.ws.rs.core.HttpHeaders;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import javax.ws.rs.core.Response.Status;
@@ -315,6 +317,89 @@ public class ScoutApacheConnectorTest {
     assertEquals(Response.Status.OK.getStatusCode(), entity.getEcho().getCode().intValue());
     assertEquals(expectedTransferEncoding, entity.getReceivedHeaders().get("Transfer-Encoding"));
     assertEquals(payload, BEANS.get(IDataObjectMapper.class).readValueRaw(entity.getEcho().getBody()));
+
+    response.close();
+  }
+
+  @Test
+  public void testDefaultUserAgent() {
+    runTestUserAgent((helper, clientBuilder) -> { /* nop */ }, null, "Generic");
+  }
+
+  @Test
+  public void testNoUserAgent() {
+    runTestUserAgent((helper, clientBuilder) -> {
+      // disable chunked transfer (e.g. buffering in memory is enabled)
+      clientBuilder.property(RestClientProperties.SUPPRESS_DEFAULT_USER_AGENT, true);
+    }, null, null);
+  }
+
+  @Test
+  public void testCustomUserAgent() {
+    runTestUserAgent((helper, clientBuilder) -> {},
+        builder -> builder.header(HttpHeaders.USER_AGENT, "mockAgent"),
+        "mockAgent");
+  }
+
+  @Test
+  public void testCustomUserAgentEmpty() {
+    runTestUserAgent((helper, clientBuilder) -> {},
+        builder -> builder.header(HttpHeaders.USER_AGENT, ""),
+        "");
+  }
+
+  @Test
+  public void testCustomUserAgentNull() {
+    runTestUserAgent((helper, clientBuilder) -> {},
+        builder -> builder.header(HttpHeaders.USER_AGENT, null),
+        "Generic");
+  }
+
+  @Test
+  public void testCustomUserAgentNullDefaultAgentSuppressed() {
+    //noinspection CodeBlock2Expr
+    runTestUserAgent((helper, clientBuilder) -> {
+      clientBuilder.property(RestClientProperties.SUPPRESS_DEFAULT_USER_AGENT, true);
+    },
+        builder -> builder.header(HttpHeaders.USER_AGENT, null),
+        null);
+  }
+
+  @Test
+  public void testCustomUserAgentDefaultAgentSuppressed() {
+    //noinspection CodeBlock2Expr
+    runTestUserAgent((helper, clientBuilder) -> {
+      clientBuilder.property(RestClientProperties.SUPPRESS_DEFAULT_USER_AGENT, true);
+    },
+        builder -> builder.header(HttpHeaders.USER_AGENT, "mockAgent"),
+        "mockAgent");
+  }
+
+  @Test
+  public void testUserAgentDefaultAgentSuppressedOnRequest() {
+    runTestUserAgent((helper, clientBuilder) -> {},
+        builder -> builder.property(RestClientProperties.SUPPRESS_DEFAULT_USER_AGENT, true),
+        null);
+  }
+
+  protected void runTestUserAgent(BiConsumer<JerseyTestRestClientHelper, ClientBuilder> clientBuilderCustomizer, Function<Builder, Builder> invocationBuilderCustomizer, String expectedUserAgent) {
+    WebTarget target = newHelper(clientBuilderCustomizer).target("echo")
+        .queryParam(STATUS, Status.OK.getStatusCode());
+
+    Builder builder = target
+        .request();
+    if (invocationBuilderCustomizer != null) {
+      builder = invocationBuilderCustomizer.apply(builder);
+    }
+    builder.accept(MediaType.APPLICATION_JSON);
+    Response response = builder.get();
+
+    assertNotNull(response);
+    assertEquals(Response.Status.OK.getStatusCode(), response.getStatus());
+
+    RestClientTestEchoResponse entity = response.readEntity(RestClientTestEchoResponse.class);
+    assertEquals(Response.Status.OK.getStatusCode(), entity.getEcho().getCode().intValue());
+    assertEquals(expectedUserAgent, entity.getReceivedHeaders().get(HttpHeaders.USER_AGENT));
 
     response.close();
   }

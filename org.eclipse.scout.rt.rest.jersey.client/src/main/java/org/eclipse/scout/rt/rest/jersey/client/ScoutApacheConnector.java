@@ -133,9 +133,10 @@ public class ScoutApacheConnector implements Connector {
     boolean enableCookies = initCookieConfig(config, clientBuilder, requestConfigBuilder);
     m_cookieStore = createCookieStore(clientBuilder, enableCookies);
 
-    // (4) build HTTP client
+    // (4) setup and build HTTP client
     m_requestConfig = buildRequestConfig(requestConfigBuilder);
     clientBuilder.setDefaultRequestConfig(m_requestConfig);
+    clientBuilder.disableDefaultUserAgent(); // disable sending user agent header like "Apache-HttpClient/4.5.13 (Java/1.8.0_191)"
     m_client = buildHttpClient(clientBuilder);
   }
 
@@ -314,8 +315,11 @@ public class ScoutApacheConnector implements Connector {
 
     // Work around for rare abnormal connection terminations (258238)
     ensureHttpHeaderCloseConnection(clientRequest, request);
-    Map<String, String> clientHeadersSnapshot = writeOutBoundHeaders(clientRequest, request);
 
+    // setup default user agent
+    ensureDefaultUserAgent(clientRequest);
+
+    Map<String, String> clientHeadersSnapshot = writeOutBoundHeaders(clientRequest, request);
     IRegistrationHandle cancellableHandle = registerCancellable(clientRequest, request);
 
     try {
@@ -438,6 +442,17 @@ public class ScoutApacheConnector implements Connector {
     if (closeConnection && !headers.containsKey(HTTP.CONN_DIRECTIVE)) {
       LOG.trace("Adding HTTP header '" + HTTP.CONN_DIRECTIVE + ": " + HTTP.CONN_CLOSE + "'");
       httpRequest.setHeader(HTTP.CONN_DIRECTIVE, HTTP.CONN_CLOSE);
+    }
+  }
+
+  /**
+   * Adds a default user agent header if {@code RestClientProperties.SUPPRESS_DEFAULT_USER_AGENT} is {@code false} and
+   * no user agent header is present.
+   */
+  protected void ensureDefaultUserAgent(ClientRequest clientRequest) {
+    boolean suppressDefaultUserAgent = BooleanUtility.nvl(clientRequest.resolveProperty(RestClientProperties.SUPPRESS_DEFAULT_USER_AGENT, false));
+    if (!suppressDefaultUserAgent && !clientRequest.getHeaders().containsKey(HttpHeaders.USER_AGENT)) {
+      clientRequest.getHeaders().add(HttpHeaders.USER_AGENT, "Generic");
     }
   }
 
