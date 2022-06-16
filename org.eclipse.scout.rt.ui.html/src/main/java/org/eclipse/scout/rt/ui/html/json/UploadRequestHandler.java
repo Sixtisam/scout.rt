@@ -1,17 +1,19 @@
 /*
- * Copyright (c) 2010-2021 BSI Business Systems Integration AG.
+ * Copyright (c) 2010-2022 BSI Business Systems Integration AG.
  * All rights reserved. This program and the accompanying materials
  * are made available under the terms of the Eclipse Public License v1.0
  * which accompanies this distribution, and is available at
- * http://www.eclipse.org/legal/epl-v10.html
+ * https://www.eclipse.org/legal/epl-v10.html
  *
  * Contributors:
  *     BSI Business Systems Integration AG - initial API and implementation
  */
 package org.eclipse.scout.rt.ui.html.json;
 
+import java.io.ByteArrayInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.URLConnection;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -236,10 +238,9 @@ public class UploadRequestHandler extends AbstractUiServletRequestHandler {
       try (InputStream in = item.openStream()) {
         content = IOUtility.readBytes(in);
       }
-      String contentType = item.getContentType();
       BinaryResource res = BinaryResources.create()
           .withFilename(filename)
-          .withContentType(contentType)
+          .withContentType(detectContentType(filename, content))
           .withContent(content)
           .build();
       verifyFileSafety(res);
@@ -259,6 +260,17 @@ public class UploadRequestHandler extends AbstractUiServletRequestHandler {
         uploadResources.add(res);
       }
     }
+  }
+
+  /**
+   * Try to detect content type from content or filename.
+   */
+  protected String detectContentType(String filename, byte[] content) throws IOException {
+    String contentType = URLConnection.guessContentTypeFromStream(new ByteArrayInputStream(content));
+    if (contentType == null) {
+      return FileUtility.getMimeType(filename);
+    }
+    return contentType;
   }
 
   /**
